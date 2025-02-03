@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ScholarshipType {
+  CENTRAL
+  STATE
+  LOCAL
+  PRIVATE
+}
+
+model Scholarship {
+  id              String          @id @default(uuid())
+  name            String
+  eligibility     String
+  caste           String
+  religion        String
+  state           String
+  eligibilityAge  Int // Minimum age requirement
+  qualification   String // Education qualification required
+  url             String // Official scholarship website
+  applicationLink String // Direct application link
+  scholarshipType ScholarshipType // Type of scholarship (e.g., CENTRAL, STATE, etc.)
+  createdAt       DateTime        @default(now())
+}

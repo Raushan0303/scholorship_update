@@ -12,13 +12,19 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@pinecone-database/pinecone": "^4.1.0",
     "@prisma/client": "^6.3.0",
+    "axios": "^1.7.9",
     "body-parser": "^1.20.3",
+    "bull": "^4.16.5",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "nodemon": "^3.1.9",
     "pg": "^8.13.1",
-    "playwright": "^1.50.1"
+    "pinecone-client": "^2.0.0",
+    "playwright": "^1.50.1",
+    "redis": "^4.7.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -13,24 +13,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ScholarshipType {
-  CENTRAL
-  STATE
-  LOCAL
-  PRIVATE
-}
-
 model Scholarship {
-  id              String          @id @default(uuid())
-  name            String
-  eligibility     String
-  caste           String
-  religion        String
-  state           String
-  eligibilityAge  Int // Minimum age requirement
-  qualification   String // Education qualification required
-  url             String // Official scholarship website
-  applicationLink String // Direct application link
-  scholarshipType ScholarshipType // Type of scholarship (e.g., CENTRAL, STATE, etc.)
-  createdAt       DateTime        @default(now())
+  id             String  @id @default(uuid())
+  title          String
+  deadline       String
+  link           String  @unique
+  about          String
+  applyLink      String
+  eligibility    String
+  benefits       String
+  documents      String
+  howToApply     String
+  importantDates String
+  scraped        Boolean @default(false) // Track if this scholarship has been scraped
 }

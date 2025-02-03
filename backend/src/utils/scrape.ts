@@ -1,200 +1,98 @@
+import axios, { AxiosError, AxiosResponse } from "axios";
 import { chromium } from "playwright";
 
-type Scholarship = {
-  title: string;
-  deadline: string;
-  link: string;
-  moreInfo: {
-    about: string;
-    applyLink: string;
-    eligibility: string;
-    benefits: string;
-    documents: string;
-    howToApply: string;
-    importantDates: string;
-  };
+const API_URL = "https://api.buddy4study.com/api/v1.0/ssms/scholarship/";
+let currentToken = "Bearer YOUR_INITIAL_TOKEN"; // Store the latest valid token
+
+const JSON_DATA = {
+  page: 0,
+  length: 100,
+  rules: [],
+  mode: "OPEN",
+  sortOrder: "DEADLINE",
 };
 
-export const scrapeScholarships = async (): Promise<Scholarship[]> => {
+export async function fetchScholarships() {
+  while (true) {
+    try {
+      const response: AxiosResponse = await axios.post(API_URL, JSON_DATA, {
+        headers: { authorization: currentToken },
+      });
+
+      if (response.status === 200) {
+        console.log("✅ Fetched Data:", response.data);
+        return response.data;
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        const axiosError = error as AxiosError;
+
+        if (axiosError.response?.status === 401) {
+          console.log("⏳ Token expired! Fetching new token...");
+          const newToken = await getNewToken();
+
+          if (newToken) {
+            currentToken = `Bearer ${newToken}`; // Store the new valid token (prepend "Bearer")
+            console.log("🔄 Retrying request with new token...");
+          } else {
+            console.error("❌ Failed to get new token! Exiting...");
+            break;
+          }
+        } else {
+          console.error("❌ Unexpected API Error:", axiosError.message);
+          break;
+        }
+      } else {
+        console.error("❌ An unknown error occurred:", error);
+        break;
+      }
+    }
+  }
+}
+
+async function getNewToken(): Promise<string | null> {
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
-  await page.goto("https://www.buddy4study.com/scholarships");
 
-  await page.waitForLoadState("domcontentloaded");
-
-  const scholarships: Scholarship[] = await page.evaluate(() => {
-    const allLinks = Array.from(document.querySelectorAll("a"));
-    const results: Scholarship[] = [];
-
-    allLinks.forEach((link) => {
-      if (link.href.includes("/page/") && link.textContent?.trim()) {
-        const title = link.textContent.trim();
-        const deadlineElement = link
-          .closest("div")
-          ?.querySelector(".card-deadline");
-        const deadline = deadlineElement
-          ? deadlineElement.textContent?.trim() || "N/A"
-          : "N/A";
-
-        if (title && link.href) {
-          results.push({
-            title,
-            deadline,
-            link: link.href,
-            moreInfo: {
-              about: "N/A",
-              applyLink: "N/A",
-              eligibility: "N/A",
-              benefits: "N/A",
-              documents: "N/A",
-              howToApply: "N/A",
-              importantDates: "N/A",
-            },
-          });
-        }
+  // Create a promise that will resolve when a request with the token is intercepted
+  const tokenPromise = new Promise<string>((resolve, reject) => {
+    // Listen for all outgoing requests
+    page.on("request", (request) => {
+      const authHeader = request.headers()["authorization"];
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.replace("Bearer ", "").trim();
+        console.log("✅ New Token Captured:", token);
+        resolve(token);
       }
     });
 
-    return results.slice(0, 10);
+    // Set a timeout to avoid waiting indefinitely
+    setTimeout(() => {
+      reject("Timeout: Token not found!");
+    }, 30000);
   });
 
-  for (let i = 0; i < scholarships.length; i++) {
-    const scholarship = scholarships[i];
-    const scholarshipPage = await browser.newPage();
-    await scholarshipPage.goto(scholarship.link);
-    await scholarshipPage.waitForLoadState("domcontentloaded");
-    const moreInfo = await scholarshipPage.evaluate(() => {
-      const sections = document.querySelectorAll("h2, h5");
-      const data: {
-        about: string;
-        applyLink: string;
-        eligibility: string;
-        benefits: string;
-        documents: string;
-        howToApply: string;
-        importantDates: string;
-      } = {
-        about: "N/A",
-        applyLink: "N/A",
-        eligibility: "N/A",
-        benefits: "N/A",
-        documents: "N/A",
-        howToApply: "N/A",
-        importantDates: "N/A",
-      };
-
-      let currentSection: keyof typeof data | "" = "";
-      sections.forEach((el) => {
-        const textContent = el.textContent?.trim();
-        if (!textContent) return;
-
-        // Debugging: Log the current section being processed
-        console.log(`Processing section: ${textContent}`);
-
-        // Match section headings to corresponding fields
-        if (textContent.includes("About The ")) {
-          currentSection = "about";
-        } else if (textContent.includes("Eligibility")) {
-          currentSection = "eligibility";
-        } else if (textContent.includes("Benefits")) {
-          currentSection = "benefits";
-        } else if (textContent.includes("Documents")) {
-          currentSection = "documents";
-        } else if (textContent.includes("How can you apply?")) {
-          currentSection = "howToApply";
-        } else if (textContent.includes("Important Dates")) {
-          currentSection = "importantDates";
-        } else {
-          return; // Skip if no matching section is found
-        }
-
-        // Extract content for the current section
-        let content = "";
-        let nextElement = el.nextElementSibling;
-        while (nextElement && !nextElement.matches("h2, h5")) {
-          if (nextElement.textContent) {
-            content += nextElement.textContent.trim() + "\n";
-          }
-          nextElement = nextElement.nextElementSibling;
-        }
-
-        // Debugging: Log the extracted content
-        console.log(`Extracted content for ${currentSection}:`, content);
-
-        data[currentSection] = content.trim() || "N/A";
-      });
-
-      // Extract apply link
-      const applyLinkElement = document.querySelector("a[href*='apply']");
-      data.applyLink =
-        applyLinkElement instanceof HTMLAnchorElement
-          ? applyLinkElement.href
-          : "N/A";
-
-      // Debugging: Log the final data object
-      console.log("Final moreInfo data:", data);
-
-      return data;
+  try {
+    // Navigate to the target page; this may trigger requests that include the token
+    await page.goto("https://www.buddy4study.com/scholarships", {
+      waitUntil: "load", // Ensure the page loads completely
     });
+    console.log("🔄 Please log in manually if required...");
 
-    // Assign correctly structured `moreInfo`
-    scholarship.moreInfo = moreInfo;
-    await scholarshipPage.close();
+    // Wait for the token to be captured or timeout
+    const token = await tokenPromise;
+    return token;
+  } catch (error) {
+    console.error("❌ Error in fetching new token:", error);
+    return null;
+  } finally {
+    // Ensure the browser is closed regardless of the outcome
+    await browser.close();
   }
+}
 
-  await browser.close();
-  return scholarships;
-};
-
-const preprocessText = (text: string): string => {
-  console.log("Original Text:", text); // Log the original text
-
-  // 1. Convert to lowercase
-  let processedText = text.toLowerCase();
-
-  // 2. Remove punctuation
-  processedText = processedText.replace(/[^\w\s]/g, "");
-
-  // 3. Remove extra whitespaces
-  processedText = processedText.replace(/\s+/g, " ").trim();
-
-  // 4. Tokenize the text into words (split by spaces)
-  const tokens = processedText.split(" ");
-
-  // Optional: Remove stopwords
-  // Uncomment the next line if you want to remove stopwords
-  // tokens = removeStopwords(tokens);
-
-  // Join tokens back to a string
-  const finalProcessedText = tokens.join(" ");
-
-  // Log the processed text
-  return finalProcessedText;
-};
-
-const preprocessScholarships = (scholarships: Scholarship[]): Scholarship[] => {
-  return scholarships.map((scholarship) => {
-    return {
-      ...scholarship,
-      moreInfo: {
-        about: preprocessText(scholarship.moreInfo.about),
-        applyLink: scholarship.moreInfo.applyLink,
-        eligibility: preprocessText(scholarship.moreInfo.eligibility),
-        benefits: preprocessText(scholarship.moreInfo.benefits),
-        documents: preprocessText(scholarship.moreInfo.documents),
-        howToApply: preprocessText(scholarship.moreInfo.howToApply),
-        importantDates: preprocessText(scholarship.moreInfo.importantDates),
-      },
-    };
-  });
-};
-
-export const scrapeAndPreprocessScholarships = async (): Promise<
-  Scholarship[]
-> => {
-  // First, scrape scholarships
-  const scholarships = await scrapeScholarships();
-
-  // Then, preprocess the scraped scholarships
-  return preprocessScholarships(scholarships);
-};
+// ✅ Test function
+(async () => {
+  const token = await getNewToken();
+  console.log("🔹 Final Token:", token);
+})();

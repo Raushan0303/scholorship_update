@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bodyParser from "body-parser";
 import cors from "cors";
 
-import { fetchScholarships } from "./utils/scrape"; // Make sure to import the function
+import { fetchAllScholarshipDetails } from "./utils/scholorshipDetails";
 
 const prisma = new PrismaClient();
 const app: Express = express();
@@ -26,8 +26,8 @@ async function startServer() {
     console.log("Successfully connected to database");
 
     // Initial call to processScholarships when the server starts
-    await fetchScholarships();
-
+    // await fetchScholarships();
+    await fetchAllScholarshipDetails();
     // Call processScholarships every 5 minutes (300000 milliseconds)
     // setInterval(async () => {
     //   console.log("⏳ Calling processScholarships...");

@@ -27,3 +27,9 @@ model Scholarship {
   importantDates String
   scraped        Boolean @default(false) // Track if this scholarship has been scraped
 }
+
+model Slug {
+  id   String @id @default(uuid())
+  link String
+  slug String
+}

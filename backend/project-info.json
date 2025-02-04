@@ -1,0 +1,11 @@
+{
+  "title": "A scholarship Search platform",
+  "description": "A web scraping project that uses Playwright and TypeScript to extract scholarship details from the Buddy4Study website. The project navigates the main scholarships page, extracts individual scholarship cards, and then visits each scholarship page to retrieve detailed information (e.g., About, Eligibility, Benefits, Documents, How to Apply, Important Dates, Selection Criteria, Terms and Conditions, Contact Details, and Important Links).",
+  "technologyStack": [
+    "Playwright",
+    "TypeScript",
+    "Node.js"
+  ],
+  "architecture": "Modular",
+  "language": "TypeScript"
+}
